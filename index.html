@@ -121,6 +121,12 @@
 <div class="container">
   <h2>📘 Word Notepad (View Only)</h2>
 
+  <!-- 🔄 REFRESH BUTTON -->
+  <button onclick="refreshWords()" 
+          style="background:#ff9800; color:white; font-weight:600; margin-top:10px;">
+    🔄 Refresh Words
+  </button>
+
   <!-- Filter -->
   <label>📅 Filter by Date:</label>
   <input type="date" id="filterDate">
@@ -141,6 +147,11 @@ async function loadFromJSON() {
     window.wordsData = words;
     loadWords();
   } catch (err) { console.error(err); }
+}
+
+// REFRESH FUNCTION
+function refreshWords() {
+  loadFromJSON();   // Reload words from GitHub
 }
 
 // LOAD WORDS (VIEW ONLY)
