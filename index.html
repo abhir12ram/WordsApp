@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>📘 Word Notepad (View Only)</title>
+
+  <style>
+    body[data-theme="dark"] { background: #000; color: white; }
+    body[data-theme="light"] { background: white; color: black; }
+
+    body {
+      font-family: "Poppins", sans-serif;
+      background-color: #eef3f8;
+      margin: 0;
+      padding: 15px;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: auto;
+      background: #fff;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      text-align: center;
+      color: #007bff;
+      margin-bottom: 10px;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 15px;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover { background-color: #0056b3; }
+
+    /* Date group */
+    .date-group {
+      background: #f0f7ff;
+      border: 2px solid #007bff33;
+      border-radius: 10px;
+      padding: 10px;
+      margin-top: 15px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+    }
+
+    .date-header {
+      font-weight: bold;
+      color: #0056b3;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header-btns { display: flex; gap: 5px; }
+
+    .toggle-btn, .select-all-btn {
+      width: 28px; height: 28px;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      color: white;
+    }
+
+    .toggle-btn { background: #007bff; }
+    .select-all-btn { background: #17a2b8; }
+    .toggle-btn:hover { background: #0056b3; }
+
+    .word-container {
+      overflow: hidden;
+      transition: 0.3s ease;
+      max-height: 1000px;
+    }
+
+    .collapsed { max-height: 0 !important; opacity: 0; }
+
+    /* Word Item */
+    .word-item {
+      background: #eaf4ff;
+      border-left: 4px solid #007bff;
+      padding: 10px;
+      border-radius: 10px;
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .word-title { font-weight: bold; color: #0056b3; }
+    .word-meaning { font-size: 14px; color: #444; }
+
+    input[type="checkbox"] {
+      width: 18px; height: 18px;
+      accent-color: #007bff;
+    }
+
+    #shareBtn {
+      display: none;
+      background-color: #28a745;
+      font-weight: 600;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>📘 Word Notepad (View Only)</h2>
+
+  <!-- Filter -->
+  <label>📅 Filter by Date:</label>
+  <input type="date" id="filterDate">
+  <button onclick="filterByDate()">Filter</button>
+
+  <h3>📚 All Saved Words</h3>
+  <div id="wordList"></div>
+
+  <button id="shareBtn" onclick="shareSelected()">📤 Share Selected</button>
+</div>
+
+<script>
+// LOAD JSON
+async function loadFromJSON() {
+  try {
+    const res = await fetch("https://raw.githubusercontent.com/abhir12ram/WordsDb/refs/heads/main/words.json");
+    const words = await res.json();
+    window.wordsData = words;
+    loadWords();
+  } catch (err) { console.error(err); }
+}
+
+// LOAD WORDS (VIEW ONLY)
+function loadWords(filterDate = "") {
+  const wordList = document.getElementById("wordList");
+  wordList.innerHTML = "";
+
+  const words = window.wordsData || [];
+
+  const filtered = filterDate ? words.filter(w => w.date === filterDate) : words;
+
+  const grouped = {};
+  filtered.forEach(w => {
+    if (!grouped[w.date]) grouped[w.date] = [];
+    grouped[w.date].push(w);
+  });
+
+  const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
+
+  sortedDates.forEach(date => {
+    const group = document.createElement("div");
+    group.classList.add("date-group");
+
+    const header = document.createElement("div");
+    header.classList.add("date-header");
+    header.innerHTML = `📅 ${date}`;
+
+    const headerBtns = document.createElement("div");
+    headerBtns.classList.add("header-btns");
+
+    const selectAllBtn = document.createElement("button");
+    selectAllBtn.textContent = "✔";
+    selectAllBtn.classList.add("select-all-btn");
+    selectAllBtn.onclick = () => toggleSelectAll(group);
+
+    const toggleBtn = document.createElement("button");
+    toggleBtn.textContent = "▼";
+    toggleBtn.classList.add("toggle-btn");
+
+    const wordContainer = document.createElement("div");
+    wordContainer.classList.add("word-container");
+
+    toggleBtn.onclick = () => {
+      const collapsed = wordContainer.classList.toggle("collapsed");
+      toggleBtn.textContent = collapsed ? "▶" : "▼";
+      toggleShareButton();
+    };
+
+    headerBtns.appendChild(selectAllBtn);
+    headerBtns.appendChild(toggleBtn);
+    header.appendChild(headerBtns);
+    group.appendChild(header);
+
+    grouped[date].forEach(item => {
+      const div = document.createElement("div");
+      div.classList.add("word-item");
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.value = `${item.word}: ${item.meaning}`;
+      cb.onchange = toggleShareButton;
+
+      const info = document.createElement("div");
+      info.innerHTML = `<div class="word-title">${item.word}</div>
+                        <div class="word-meaning">${item.meaning}</div>`;
+
+      div.appendChild(cb);
+      div.appendChild(info);
+      wordContainer.appendChild(div);
+    });
+
+    group.appendChild(wordContainer);
+    wordList.appendChild(group);
+  });
+
+  toggleShareButton();
+}
+
+function toggleSelectAll(g) {
+  const cbs = g.querySelectorAll("input[type='checkbox']");
+  const allChecked = [...cbs].every(cb => cb.checked);
+  cbs.forEach(cb => cb.checked = !allChecked);
+  toggleShareButton();
+}
+
+function toggleShareButton() {
+  const anyChecked = [...document.querySelectorAll("#wordList input[type='checkbox']")].some(cb => cb.checked);
+  document.getElementById("shareBtn").style.display = anyChecked ? "block" : "none";
+}
+
+function filterByDate() {
+  loadWords(document.getElementById("filterDate").value);
+}
+
+function shareSelected() {
+  const selected = [...document.querySelectorAll("#wordList input[type='checkbox']:checked")];
+  if (!selected.length) return;
+
+  const text = selected.map(cb => {
+    const [w, m] = cb.value.split(": ");
+    const date = cb.closest(".date-group").querySelector(".date-header").textContent.replace("📅 ", "");
+    return `📌 ${w}\n📝 ${m}\n📅 ${date}`;
+  }).join("\n\n");
+
+  if (navigator.share) navigator.share({ text });
+  else alert(text);
+}
+
+document.addEventListener("DOMContentLoaded", loadFromJSON);
+</script>
+
+</body>
+</html>
